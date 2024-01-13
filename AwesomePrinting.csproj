@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <AssemblyName>psiber.awesome.reminders</AssemblyName>
-    <Description>Awesome Reminders</Description>
+    <AssemblyName>psiber.awesome.printing</AssemblyName>
+    <Description>Awesome Printing</Description>
     <Version>1.0.0</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
