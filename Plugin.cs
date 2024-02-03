@@ -10,8 +10,6 @@ namespace AwesomePrinting
     [BepInPlugin(PluginInfo.PLUGIN_GUID, PluginInfo.PLUGIN_NAME, PluginInfo.PLUGIN_VERSION)]
     public class Plugin : BaseUnityPlugin
     {
-
-        public const string CONFIG_GENERAL              = "General";
         public const int UNITY_LEFT_CLICK               = 0;
         public const int UNITY_RIGHT_CLICK               = 1;
         public const int UNITY_MIDDLE_CLICK               = 2;
@@ -27,7 +25,7 @@ namespace AwesomePrinting
 
         private void Awake()
         {
-            this.configKey = base.Config.Bind<KeyCode>("Options", "Toggle Key", KeyCode.LeftShift, "Sample tile type.");
+            this.configKey = base.Config.Bind<KeyCode>("Options", "Combo Key", KeyCode.LeftShift, "Combo Key for use when doing advanced selections.");
             new Harmony(PluginInfo.PLUGIN_GUID).PatchAll();
         }
 
@@ -69,11 +67,11 @@ namespace AwesomePrinting
                     switch (Plugin.sampledTileType)
                     {
                         case -1:
-                            result += "";
+                            result += ", Tile=Existing";
                             break;
 
                         default:
-                            result += ", Tile=" + Plugin.sampledTileType;
+                            result += ", Tile=" + WorldManager.Instance.tileTypes[Plugin.sampledTileType].name;
                             break;
                     }
 
@@ -105,10 +103,11 @@ namespace AwesomePrinting
 
                 // provide feedback
                 if (Input.GetKeyDown(this.configKey.Value)){
+                    string comboKey = this.configKey.BoxedValue.ToString();
                     NotificationManager.manage.createChatNotification("[RightClick] = Apply at tile highlighter");
                     NotificationManager.manage.createChatNotification("[MiddleClick] = Set height to level at your feet");
-                    NotificationManager.manage.createChatNotification("[LeftShift] + [MiddleClick] = Sample selected tile");
-                    NotificationManager.manage.createChatNotification("[LeftShift] + [RightClick] = Change brush size");
+                    NotificationManager.manage.createChatNotification($"[{comboKey}] + [MiddleClick] = Sample selected tile");
+                    NotificationManager.manage.createChatNotification($"[{comboKey}] + [RightClick] = Change brush size");
                 }
                 
                 if (Input.GetMouseButtonDown(UNITY_MIDDLE_CLICK)){
