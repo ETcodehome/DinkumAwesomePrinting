@@ -1,8 +1,10 @@
-﻿using System;
+﻿﻿
+using System;
 using HarmonyLib;
 using BepInEx;
 using UnityEngine;
 using BepInEx.Configuration;
+using System.Collections.Generic;
 
 namespace AwesomePrinting
 {
@@ -17,7 +19,11 @@ namespace AwesomePrinting
         public static int sampledTileType = -1;
         private ConfigEntry<KeyCode> configKey;
         public static int mode = 0;
-        public static int dirtPrinterItemID = 925;
+        public static int worldEditTool = 925;
+
+        private NameManager nameManager = new NameManager();
+        private BrushManager brushManager = new BrushManager();
+        private SelectionManager selectionManager = new SelectionManager();
 
         public Plugin()
         {
@@ -27,58 +33,6 @@ namespace AwesomePrinting
         {
             this.configKey = base.Config.Bind<KeyCode>("Options", "Combo Key", KeyCode.LeftShift, "Combo Key for use when doing advanced selections.");
             new Harmony(PluginInfo.PLUGIN_GUID).PatchAll();
-        }
-
-        [HarmonyPatch(typeof(InventoryItem), "getInvItemName")]
-        public class GetInvItemNamePatch
-        {
-            private static void Postfix(InventoryItem __instance, ref string __result)
-            {
-                var heldItemID = __instance.getItemId();
-                if (heldItemID == Plugin.dirtPrinterItemID)
-                {
-
-                    string result = string.Empty;
-
-                    // Display brush sizes
-                    switch (Plugin.mode)
-                    {
-                        case 0:
-                            result += "1x1";
-                            break;
-
-                        case 1:
-                            result += "3x3";
-                            break;
-
-                        case 2:
-                            result += "5x5";
-                            break;
-
-                        case 3:
-                            result += "7x7";
-                            break;
-                    }
-                    
-                    // Display editing mode
-                    result += ", Height=" + Plugin.printHeight;
-
-                    // Display editing mode
-                    switch (Plugin.sampledTileType)
-                    {
-                        case -1:
-                            result += ", Tile=Existing";
-                            break;
-
-                        default:
-                            result += ", Tile=" + WorldManager.Instance.tileTypes[Plugin.sampledTileType].name;
-                            break;
-                    }
-
-                    __result = result;
-
-                }
-            }
         }
 
         /// <summary>
@@ -94,9 +48,8 @@ namespace AwesomePrinting
 
             int invIndex = Inventory.Instance.selectedSlot;
             int heldItemID = Inventory.Instance.invSlots[invIndex].itemNo;
-            int dirtPrinterItemID = 925;
 
-            if (heldItemID == dirtPrinterItemID){    
+            if (heldItemID == worldEditTool){    
 
                 int xHighLight = Mathf.RoundToInt(NetworkMapSharer.Instance.localChar.myInteract.tileHighlighter.transform.position.x / 2f);
                 int zHighLight = Mathf.RoundToInt(NetworkMapSharer.Instance.localChar.myInteract.tileHighlighter.transform.position.z / 2f);
@@ -138,95 +91,41 @@ namespace AwesomePrinting
 
                 if (Input.GetMouseButtonDown(UNITY_RIGHT_CLICK))
                 {
-
+                    
                     // change tile area size
                     if (Input.GetKey(this.configKey.Value))
                     {
-                    
-                        switch (mode)
-                        {
-                            case 0:
-                                mode = 1;
-                                break;
-
-                            case 1:
-                                mode = 2;
-                                break;
-
-                            case 2:
-                                mode = 3;
-                                break;
-
-                            case 3:
-                                mode = 0;
-                                break;
-                        }
-                        Inventory.Instance.equipNewSelectedSlot();
+                        brushManager.ChangeBrushShape();
                         return;
                     }
 
-                    // update area based on mode
-                    int size = 1;
-                    switch (mode)
+                    // Get the tiles to operate on based on current brush setting
+                    List<TempTileData> targetTiles = selectionManager.GetSelectedTiles();
+
+                    // Actually apply the tile changes
+                    foreach (TempTileData tile in targetTiles)
                     {
-                        case 0:
-                            size = 1;
-                            break;
+                        int x = tile.xCoord;
+                        int z = tile.zCoord;
+                        int currentTileType = tile.tileType;
 
-                        case 1:
-                            size = 3;
-                            break;
-
-                        case 2:
-                            size = 5;
-                            break;
-
-                        case 3:
-                            size = 7;
-                            break;
-                    }
-
-                    // calculate actual target positions
-
-                    var forwardTransform = NetworkMapSharer.Instance.localChar.transform.forward;
-                    var sizeOffset = (size - 1) / 2;
-                    var zOffset = sizeOffset;
-                    var xOffset = sizeOffset;
-                    var xCentre = xHighLight;
-                    var zCentre = zHighLight;
-
-                    if (forwardTransform.z < 0) { zOffset *= -1; }
-                    if (forwardTransform.x < 0) { xOffset *= -1; }
-                    if (Mathf.Abs(forwardTransform.x) > 0.5) { xCentre += xOffset; }
-                    if (Mathf.Abs(forwardTransform.z) > 0.5) { zCentre += zOffset; }
-
-                    var xMin = xCentre - sizeOffset;
-                    var xMax = xCentre + sizeOffset;
-                    var zMin = zCentre - sizeOffset;
-                    var zMax = zCentre + sizeOffset;
-
-                    // actually update the tiles
-                    for (int x = xMin; x <= xMax; x++) 
-                    {
-                        for (int z = zMin; z <= zMax; z++)
+                        // Update the tile visuals
+                        if (sampledTileType != -1 && sampledTileType != currentTileType)
                         {
-                            // Update the tile visuals
-                            int currentTileType = WorldManager.Instance.tileTypeMap[x, z];
-                            if (sampledTileType != -1 && sampledTileType != currentTileType)
-                            {
-                                NetworkMapSharer.Instance.RpcUpdateTileType(sampledTileType, x, z);
-                            }
-
-                            // Update the tile height
-                            int currentHeight = WorldManager.Instance.heightMap[x, z];
-                            int heightDifference = printHeight - currentHeight;
-                            NetworkMapSharer.Instance.RpcUpdateTileHeight(heightDifference, x, z);
-                            
-                            // Flag the chunk as needing an update
-                            WorldManager.Instance.heightChunkHasChanged(x, z);
-                            WorldManager.Instance.addToChunksToRefreshList(x, z);
+                            NetworkMapSharer.Instance.RpcUpdateTileType(sampledTileType, x, z);
                         }
+
+                        // Update the tile height
+                        int currentHeight = WorldManager.Instance.heightMap[x, z];
+                        int heightDifference = printHeight - currentHeight;
+                        NetworkMapSharer.Instance.RpcUpdateTileHeight(heightDifference, x, z);
+                        
+                        // Flag the chunk as needing an update
+                        WorldManager.Instance.heightChunkHasChanged(x, z);
+                        WorldManager.Instance.addToChunksToRefreshList(x, z);
+
                     }
+
                 }
             } 
         }
