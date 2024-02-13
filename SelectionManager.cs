@@ -81,7 +81,7 @@ namespace AwesomePrinting
             var zMin = zCentre - sizeOffset;
             var zMax = zCentre + sizeOffset;
 
-            // actually update the tiles
+            // actually accumulate the tile data
             for (int x = xMin; x <= xMax; x++) 
             {
                 for (int z = zMin; z <= zMax; z++)
@@ -93,9 +93,7 @@ namespace AwesomePrinting
                         double distance = Math.Sqrt(Math.Pow(xDiff, 2) + Math.Pow(zDiff, 2));
                         double tolerance = 0.01d;
                         double maxDistance = radius + tolerance;
-                        NotificationManager.manage.createChatNotification($"x {xDiff} z {zDiff} distance {distance} maxDistance {maxDistance}");
                         if (distance > maxDistance){
-                            NotificationManager.manage.createChatNotification($"too far - disabled");
                             continue;
                         }
                     }
