@@ -23,6 +23,7 @@ namespace AwesomePrinting
 
         private NameManager nameManager = new NameManager();
         private BrushManager brushManager = new BrushManager();
+        private PreviewManager previewManager = new PreviewManager();
         private SelectionManager selectionManager = new SelectionManager();
 
         public Plugin()
@@ -45,6 +46,8 @@ namespace AwesomePrinting
             if (Inventory.Instance.isMenuOpen()){
                 return;
             }
+
+            previewManager.Tick();
 
             int invIndex = Inventory.Instance.selectedSlot;
             int heldItemID = Inventory.Instance.invSlots[invIndex].itemNo;
@@ -92,10 +95,46 @@ namespace AwesomePrinting
                 if (Input.GetMouseButtonDown(UNITY_RIGHT_CLICK))
                 {
                     
+                    // if there is an existing preview get rid of that instead of doing any further action
+                    if (previewManager.TimeSinceLastPreview() < previewManager.previewTime)
+                    {
+                        previewManager.RevertPreviewChanges();
+                        return;
+                    }
+
                     // change tile area size
                     if (Input.GetKey(this.configKey.Value))
                     {
                         brushManager.ChangeBrushShape();
+
+                        // Get the tiles to operate on based on the new brush setting
+                        List<TempTileData> previewTiles = selectionManager.GetSelectedTiles();
+
+                        // Store the current tile information
+                        previewManager.StorePreviewData(previewTiles);
+
+                        // Update the selection with a tile preview
+                        foreach (TempTileData tile in previewTiles)
+                        {
+                            int x = tile.xCoord;
+                            int z = tile.zCoord;
+                            if (sampledTileType != -1)
+                            {
+                                NetworkMapSharer.Instance.RpcUpdateTileType(sampledTileType, x, z);
+                            }
+                            else
+                            {
+                                NetworkMapSharer.Instance.RpcUpdateTileType(32, x, z);
+                            }
+
+                            NetworkMapSharer.Instance.RpcUpdateTileHeight(0, x, z);
+                        
+                            // Flag the chunk as needing an update
+                            WorldManager.Instance.heightChunkHasChanged(x, z);
+                            WorldManager.Instance.addToChunksToRefreshList(x, z);
+                            
+                        }
+
                         return;
                     }
 
